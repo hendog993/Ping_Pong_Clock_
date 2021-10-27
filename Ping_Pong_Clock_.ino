@@ -9,10 +9,11 @@
 
 #include <FastLED.h>
 #include "Globals.h"
+
+/* Create LED array */
 CRGB leds [ NUM_LEDS ] ; 
 
 /* Struct Definitions  */ 
-
 typedef struct Color_t 
 {
     byte red_value ; 
@@ -36,11 +37,11 @@ typedef struct Time_t
 Time masterTime ; 
 
  /* For Digits 1-4, if the digit's number  */
-int32_t writeTimeToClock ( Time * timePointer ) 
+int32_t writeTimeToClock ( const Time * const timePointer ) 
 {   
     int32_t success = EXIT_FAILURE ;
      
-    if (timePointer == NULL ) 
+    if ( NULL == timePointer ) 
     {
         return success ; 
     }
@@ -50,11 +51,14 @@ int32_t writeTimeToClock ( Time * timePointer )
                               timePointer->digit2,
                               timePointer->digit3,
                               timePointer->digit4 } ;
-                               
+                              
+    /* For digits 1-4,For the respective LED of each digit, if the number's digit should be on,
+     * write the respective digit's LED.     
+     */                        
     for ( int i = 0; i < 4 ; i++ ) 
-    {
+    {    
         for ( int j = 0 ; j < 12 ; j++ ) 
-        {
+        {    
             if ( nums [ time_values[ i ]][ j ] == 1 )
             {
                 leds[digits[i][j]] = CRGB( NUMBER_RED_COLOR, NUMBER_GREEN_COLOR, NUMBER_BLUE_COLOR );
@@ -67,29 +71,31 @@ int32_t writeTimeToClock ( Time * timePointer )
     return success  ; 
 }
 
-int32_t handleMasterTimeReset ( int32_t & masterTimeInSeconds ) 
-{
-    if (masterTimeInSeconds >= NUM_SECONDS_IN_DAY ) 
+int32_t handleMasterTimeReset ( int32_t * const masterTimeInSeconds ) 
+{   // TODO can this be a ternary? 
+    if (*masterTimeInSeconds >= NUM_SECONDS_IN_DAY ) 
     {
-        masterTimeInSeconds = 0 ;
+        *masterTimeInSeconds = 0 ;
     }
+    
+    // *masterTimeInSeconds = ( *masterTimeInSeconds >= NUM_SECONDS_IN_DAY ) ? 0 : *masterTimeInSeconds ;
     return EXIT_SUCCESS ;
 }
 
-int32_t convertSecondsToFourDigitTime ( Time * timePointer , int32_t timeValueInSeconds ) 
+int32_t convertSecondsToFourDigitTime ( Time * const timePointer , const int32_t timeValueInSeconds ) 
 {
     int32_t success = EXIT_FAILURE ; 
     
-    if ( ( timePointer == NULL ) ||
-         timeValueInSeconds >= NUM_SECONDS_IN_DAY )
+    if ( ( NULL == timePointer) ||
+         (timeValueInSeconds >= NUM_SECONDS_IN_DAY ) )
     {
-        return success ; // Error    
+        return success ; // Error , these should be handled before entry    
     }
 
     /* Convert Seconds to Minutes and Hours */
     byte hours , minutes ; 
-    hours = timeValueInSeconds / NUM_SEC_IN_HOUR ; 
-    minutes = (timeValueInSeconds % NUM_SEC_IN_HOUR ) / NUM_SECONDS_IN_MINUTE ; 
+    hours = timeValueInSeconds / NUM_SECONDS_IN_HOUR ; 
+    minutes = ( timeValueInSeconds % NUM_SECONDS_IN_HOUR ) / NUM_SECONDS_IN_MINUTE ; 
     
     if ( ( hours >= NUM_HOURS_IN_DAY ) ||
          ( minutes >= NUM_MINUTES_IN_HOUR ))
@@ -101,19 +107,19 @@ int32_t convertSecondsToFourDigitTime ( Time * timePointer , int32_t timeValueIn
     /* TODO are these magic numbers ? */
     byte tensDigitOfHours = ( hours/10 ) % 10 ; 
     byte onesDigitOfHours =  hours - ( tensDigitOfHours * 10 ) ;
-    byte tensDigitOfMinutes = ( minutes/10) % 10 ;
+    byte tensDigitOfMinutes = ( minutes/10 ) % 10 ;
     byte onesDigitOfMinutes = minutes - ( tensDigitOfMinutes * 10 ) ; 
 
-    /* TODO are these magic numberrs */
-    if ( ( tensDigitOfHours > 2 ) ||    
-         ( onesDigitOfHours > 4 ) ||
-         ( tensDigitOfMinutes > 5 ) ||
-         ( onesDigitOfMinutes > 10 ))
+    /* Cerify calculation */
+    if ( ( tensDigitOfHours > MAX_VAL_DIGIT_1 ) ||    
+         ( onesDigitOfHours > MAX_VAL_DIGIT_2 ) ||
+         ( tensDigitOfMinutes > MAX_VAL_DIGIT_3 ) ||
+         ( onesDigitOfMinutes > MAX_VAL_DIGIT_4 ))
     {
         return success ; // Error , exceeds limits of 24 hour time 
     }
 
-    /* Construct the master time in the time pointer struct TODO add some error checking here */ 
+    /* Construct the mastertime pointer  */ 
     timePointer->digit1 = tensDigitOfHours ; 
     timePointer->digit2 = onesDigitOfHours ; 
     timePointer->digit3 = tensDigitOfMinutes ; 
@@ -124,7 +130,7 @@ int32_t convertSecondsToFourDigitTime ( Time * timePointer , int32_t timeValueIn
 }
 
 /* Write All Values in matrix to value in background color */
-int32_t writeBackgroundColor ( ) 
+void writeBackgroundColor ( ) 
 {  
     for ( int i = 0; i < NUM_LEDS ; i++ ) 
     {
@@ -132,10 +138,9 @@ int32_t writeBackgroundColor ( )
                          BACKGROUND_GREEN_COLOR ,
                          BACKGROUND_BLUE_COLOR ) ;  
     }
-    return EXIT_SUCCESS ; 
 }
 
-int32_t writeColonColor ( ) 
+void writeColonColor ( ) 
 {
     leds[COLON_TOP] = CRGB ( COLON_RED_COLOR, 
                              COLON_GREEN_COLOR,
@@ -143,32 +148,33 @@ int32_t writeColonColor ( )
     leds[COLON_BOT] = CRGB ( COLON_RED_COLOR, 
                              COLON_GREEN_COLOR ,
                              COLON_BLUE_COLOR ) ;
-    return EXIT_SUCCESS ;
 }
 
-int32_t writeFullMatrix ( Time * timePointer  ) 
+int32_t writeFullMatrix ( const Time * const timePointer  ) 
 {
     int32_t success = EXIT_FAILURE ; 
+    
     /* Write Background */
-    success = writeBackgroundColor () ;
+    writeBackgroundColor () ;
     
     /* Write Colon */
-    success = writeColonColor () ;
+    writeColonColor () ;
     
     /* Write Time  */
-    success = writeTimeToClock (timePointer) ;
+    success = writeTimeToClock ( timePointer ) ;
+    
     /* Show LEDs */
-
     FastLED.show () ;
+    
     return success ; 
 }
 
 /* Global Variables */
 uint32_t startMillis ; 
 uint32_t currentMillis ; 
-const uint16_t period = 60000 ; // Milliseconds 
-int32_t timeInSeconds = 45240 ; 
-int32_t success = EXIT_SUCCESS ; 
+const uint16_t period = 1000 ; // Milliseconds 
+int32_t timeInSeconds = 29820 ;  // TODO make this configurable with encoder once debounce is figured out. 
+int32_t success = EXIT_SUCCESS ; // Should this be global? 
 
 void setup() 
 {
@@ -177,10 +183,9 @@ void setup()
     FastLED.setMaxPowerInVoltsAndMilliamps( 5, 500 );
     FastLED.clear( );
     FastLED.show( ) ; 
-
+    
     /* Initialize Time Struct  */
     convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
-    /* Write Initial Time and Background Color */
     
     /* Initialize Timer  */
     startMillis = millis () ; 
@@ -189,22 +194,25 @@ void setup()
     writeFullMatrix ( &masterTime ) ;
 }
 
+/* Main loop logic: 
+ * If the period has passed ( 1 second ) , 
+ * 1. convert the time in seconds into digits in the time poiner, 
+ * 2. Write the full LED matrix with background, colon, then time. 
+ * 3. Increment the time value in seconds
+ * 4. Handle the time rollover in seconds 
+ * 5. Set the start time to the current time for the next period
+ */
 void loop() 
 {
-    while (success == EXIT_SUCCESS ) 
-    {
     currentMillis = millis () ; 
     if (currentMillis - startMillis >= period ) 
         {
             /* Inside time controlled loop */
             success = convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ; 
             success = writeFullMatrix ( &masterTime ) ;
-            timeInSeconds += 60 ; 
-            success = handleMasterTimeReset ( timeInSeconds ) ;
+            timeInSeconds ++ ; 
+            success = handleMasterTimeReset ( &timeInSeconds ) ;
             startMillis = currentMillis ;
-        }
+         }
      /* Enter input handling here, outside of main time-based loop */   
-    }
-    /* Error Segment - Should never reach here */
-    Serial.println ( "Exit failure " );
 }
