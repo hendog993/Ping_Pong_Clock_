@@ -6,7 +6,7 @@
 #define COLON_BOT 66
 
 /* Pin Declaration for LED output */ 
-#define LED_PIN 2 
+#define LED_PIN 4
 
 /* Number of total LEDs in full matrix */
 #define NUM_LEDS  128 
