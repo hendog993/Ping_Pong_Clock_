@@ -3,9 +3,10 @@
  * Date 10-22-2021
  */
 
-// TODO ensure things are updating on the right cycle
-// TODO are the color structs necessary? A global macro/const int works just as fine, they aren't changing-yet.
-// TODO figure out whether or not 60 second loop w/ += 60 is good, or 1 second loop with ++
+/* Master todo list
+ *  - Enable rotary encoder time click adjustment - blinking feature between the hours and minute setting 
+ * Round off when doing counts adjustments 
+ */
 
 #include <FastLED.h>
 #include "Globals.h"
@@ -17,13 +18,6 @@ extern "C" {
 
 CRGB leds [ NUM_LEDS ] ; // todo should this be volatile? 
 
-typedef struct Time_t
-{
-    byte digit1 ;
-    byte digit2 ;
-    byte digit3 ;
-    byte digit4 ;
-} Time ;
 
 volatile Time masterTime ;
 
@@ -52,7 +46,9 @@ int32_t writeTimeToClock ( const Time * const timePointer )
         {
             if ( nums [ time_values[ i ]][ j ] == 1 )
             {
-                leds[digits[i][j]] = CRGB( NUMBER_RED_COLOR, NUMBER_GREEN_COLOR, NUMBER_BLUE_COLOR );
+                leds[digits[i][j]] = CRGB( NUMBER_RED_COLOR, 
+                                            NUMBER_GREEN_COLOR, 
+                                            NUMBER_BLUE_COLOR );
             }
         }
     }
@@ -67,12 +63,11 @@ int32_t handleMasterTimeReset ( int32_t * const masterTimeInSeconds )
     {
         *masterTimeInSeconds = 0 ;
     }
-
-    // *masterTimeInSeconds = ( *masterTimeInSeconds >= NUM_SECONDS_IN_DAY ) ? 0 : *masterTimeInSeconds ;
     return EXIT_SUCCESS ;
 }
 
-int32_t convertSecondsToFourDigitTime ( Time * const timePointer ,  int32_t timeValueInSeconds )
+int32_t convertSecondsToFourDigitTime ( Time * const timePointer ,  
+                                        int32_t timeValueInSeconds )
 {
     int32_t success = EXIT_FAILURE ;
 
@@ -163,11 +158,12 @@ int32_t writeFullMatrix ( const Time * const timePointer  )
 uint32_t startMillis ;
 uint32_t currentMillis ;
 const uint16_t period = 1000 ; // Milliseconds
-volatile int32_t timeInSeconds = 0 ;  // TODO make this configurable with encoder once debounce is figured out.
+int32_t timeInSeconds = 0 ;  // TODO make this configurable with encoder once debounce is figured out.
+int32_t timeInSecondsPrevious;
 
 /* Rotary Encoder Portion */
 uint32_t rotVector;
-uint16_t rotCounter;
+uint32_t rotCounts;
 
 void rotISR()
 {
@@ -180,27 +176,29 @@ void rotISR()
     switch ( rotVector )
     {
         case 11u:      
-            (timeInSeconds == 0)? timeInSeconds = 0 : timeInSeconds-= 60;
-            convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
-            writeFullMatrix ( &masterTime ) ;
+            (timeInSeconds == 0)? timeInSeconds = 0 : rotCounts-= 60;
             break;
         case 7u:
-            timeInSeconds+= 60;
-            convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
-            writeFullMatrix ( &masterTime ) ;
+            rotCounts+= 60;
             break;
-            
         default:
             break;
     }
-    
     interrupts();
+}
+
+/*  Polling routine to update the time in seconds based on rotary encoder counts. */
+void serviceRotaryEncoderCounts()
+{
+    timeInSeconds += rotCounts;
+    rotCounts = 0;
 }
 /************ end rotary encoder section  *************/
 
 #ifdef _cpluscplus
 }
 #endif 
+
 void setup()
 {
 //    Serial.begin ( 115200 ) ;
@@ -210,38 +208,50 @@ void setup()
     FastLED.show( ) ;
 
     /* Attach Interrupt */
-    attachInterrupt(digitalPinToInterrupt(2), rotISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(3), rotISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(2), 
+                                    rotISR, 
+                                    CHANGE);
+    attachInterrupt(digitalPinToInterrupt(3), 
+                                    rotISR, 
+                                    CHANGE);
     
     /* Initialize Time Struct  */
-    convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
+    convertSecondsToFourDigitTime ( &masterTime , 
+                                    timeInSeconds ) ;
 
     /* Initialize Timer  */
     startMillis = millis () ;
+    timeInSecondsPrevious = 0;
 
     /* Write initial time, since the first mainloop call won't occur until period is met */
     writeFullMatrix ( &masterTime ) ;
 }
 
-/* Main loop logic:
- * If the period has passed ( 1 second ) ,
- * 1. convert the time in seconds into digits in the time poiner,
- * 2. Write the full LED matrix with background, colon, then time.
- * 3. Increment the time value in seconds
- * 4. Handle the time rollover in seconds
- * 5. Set the start time to the current time for the next period
- */
+
 void loop()
 {
     currentMillis = millis () ;
+    serviceRotaryEncoderCounts();
+    
+    if ( abs(timeInSeconds - timeInSecondsPrevious) >= 60 )
+    {
+        convertSecondsToFourDigitTime ( &masterTime , 
+                                        timeInSeconds ) ;
+        writeFullMatrix ( &masterTime ) ;
+        handleMasterTimeReset ( &timeInSeconds ) ;
+        timeInSecondsPrevious = timeInSeconds;
+    }
+    
+    // Update the time reading if the time in seconds has changed by one minute. 
     if (currentMillis - startMillis >= period )
-        {
-           /* Inside time controlled loop */
-            convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
-            writeFullMatrix ( &masterTime ) ;
-            timeInSeconds ++ ;
-            handleMasterTimeReset ( &timeInSeconds ) ;
-            startMillis = currentMillis ;
-         }
+    {
+       /* Inside time controlled loop */
+//            convertSecondsToFourDigitTime ( &masterTime , timeInSeconds ) ;
+//            writeFullMatrix ( &masterTime ) ;
+        timeInSeconds ++ ;
+//            handleMasterTimeReset ( &timeInSeconds ) ;
+        startMillis = currentMillis ;
+     }
+//     Serial.println(timeInSeconds);
      /* Enter input handling here, outside of main time-based loop */
 }

@@ -79,6 +79,15 @@ const byte digits[4][12] =
 
 /* LED assignment of the clock perimeter */
 const byte perimeter[] = {0,2,1,12,13,26,27,40,41,54,55,68,69,82,83,96,97,110,111,124,123,125,126,127,119,118,117,
-                  104,103,90,89,76,75,62,61,48,47,34,33,20,19,6,5,4};                   
+                  104,103,90,89,76,75,62,61,48,47,34,33,20,19,6,5,4};   
+
+/* Typedefs */
+typedef struct Time_t
+{
+    byte digit1 ;
+    byte digit2 ;
+    byte digit3 ;
+    byte digit4 ;
+} Time ;
 
 #endif
