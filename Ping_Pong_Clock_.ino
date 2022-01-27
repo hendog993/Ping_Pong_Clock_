@@ -18,7 +18,6 @@ extern "C" {
 
 CRGB leds [ NUM_LEDS ] ; // todo should this be volatile? 
 
-
 volatile Time masterTime ;
 
  /* For Digits 1-4, if the digit's number  */
@@ -163,7 +162,7 @@ int32_t timeInSecondsPrevious;
 
 /* Rotary Encoder Portion */
 uint32_t rotVector;
-uint32_t rotCounts;
+volatile int32_t rotCounts;
 
 void rotISR()
 {
@@ -201,7 +200,7 @@ void serviceRotaryEncoderCounts()
 
 void setup()
 {
-//    Serial.begin ( 115200 ) ;
+    Serial.begin ( 115200 ) ;
     FastLED.addLeds<WS2812, LED_PIN, GRB>( leds , NUM_LEDS );
     FastLED.setMaxPowerInVoltsAndMilliamps( 5, 500 );
     FastLED.clear( );
@@ -237,6 +236,7 @@ void loop()
     {
         convertSecondsToFourDigitTime ( &masterTime , 
                                         timeInSeconds ) ;
+        Serial.println(timeInSeconds);
         writeFullMatrix ( &masterTime ) ;
         handleMasterTimeReset ( &timeInSeconds ) ;
         timeInSecondsPrevious = timeInSeconds;
